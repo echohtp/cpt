@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<head>
+
+	<script type="text/javascript" src="js/jquery.js"></script>
+	<script type="text/javascript" src="js/bootstrap.js"></script>
+	<script type="text/javascript" src="js/underscore.js"></script>
+	<script type="text/javascript" src="js/backbone.js"></script>
+	<script type="text/javascript" src="js/cehtest.js"></script>
+
+	<link rel="stylesheet" type="text/css" href="css/bootstrap.css">
+
+	<style>
+	.glyphicon-exclamation-sign{
+		color: red;
+	}
+	.glyphicon-check{
+		color: green;
+	}
+	.progress-bar{
+		min-width: 20px;
+	}
+
+	* {
+	    margin: 0;
+	}
+	html, body {
+	    height: 95%;
+	}
+	.wrapper {
+	    min-height: 100%;
+	    height: auto !important;
+	    height: 100%;
+	    margin: 0 auto -50px; /* the bottom margin is the negative value of the footer's height */
+	}
+	.footer, .push {
+	    height: 50px; /* .push must be the same height as .footer */
+	}
+
+	</style>
+
+	<script>
+	var numberOfQuestions = 0;
+	var correctAnswers = [];
+
+	var qModel = Backbone.Model.extend({
+		defaults:{
+			qid: '',
+			question: '',
+			choices: { 
+				A: '',
+				B: '',
+				C: '',
+				D: ''
+			},
+			answer: ''
+		},
+
+		render: function(){
+			var template = _.template($('#questionTemplate').html());
+			$('#questionsArea').append ( template({q: this}) );
+		}
+	});
+
+	var qCollection = Backbone.Collection.extend({
+		model: qModel
+	});
+	
+	var testView = Backbone.View.extend({
+		//template: _.template(),
+		render: function(){
+			theTest = new qCollection(theTest.shuffle());
+			$('#header').hide();
+			$('#questionsArea').empty();
+			$('#wrongAnswers').empty();
+			console.log('we rendering ' + numberOfQuestions + ' questions');
+			var template = _.template( $('#questionTemplate').html() );
+			for (var i = 0 ; i < numberOfQuestions; i++){
+				theTest.at(i).render();
+			}
+		}
+	});
+
+	var theTest = new qCollection();
+	var theTestView = new testView();
+	
+	function loadQuestions(){
+		var nModels = 1;
+		for (var c = 0; c < atest.length; c+= 5){
+			var tModel = new qModel({
+				qid: nModels,
+				question: atest[c],
+				choices: { 
+					A: atest[c+1], //.substr(2)
+					B: atest[c+2],
+					C: atest[c+3],
+					D: atest[c+4]
+				},
+				answer: aanswers[nModels-1]
+			});
+			theTest.add(tModel);
+			nModels++;
+		}
+	};
+
+	$(function(){
+		loadQuestions();
+
+		$('#tMaxLen').attr('placeholder',theTest.length);
+
+		$('#btnGenTest').click(function(e){
+			e.preventDefault();
+			numberOfQuestions = $('#numQuestions').val();
+			if ( numberOfQuestions === "" || numberOfQuestions < 1 || numberOfQuestions > theTest.length ){
+				numberOfQuestions = 5;
+				theTestView.render();
+				$('#btnSubmitTest').show()
+				$('#btnReset').hide();
+			}else{
+				theTestView.render();
+				$('#btnSubmitTest').show()
+				$('#btnReset').hide();
+			}
+		});
+
+		$('#btnReset').click(function(e){
+			e.preventDefault();
+			$('#btnReset').hide();
+			$('#answerArea').hide();
+			$('#questionsArea').show();
+			theTestView.render();
+		});
+
+		$('#btnSubmitTest').click(function(e){
+			e.preventDefault();
+			var numAnswers = 0;
+			$('.glyphicon-check').hide();
+			$('.glyphicon-exclamation-sign').hide();
+			$('div[name="testQuestion"]').each(function(index, value){
+				var q = $(value).find('input[type="radio"]:checked');
+
+				if (!$(q).val()){
+					console.log ('question not answered');
+					$(value).css('border', '1px solid red');
+				}else{
+					numAnswers++;
+					$(value).css('border', '0px');
+
+
+				}
+				//console.log ('q: ' + $(q).val() + ' A: ' + $(a).val());
+			});
+			
+
+			if ( numAnswers == numberOfQuestions){
+				var score = 0; 
+				$('div[name="testQuestion"]').each(function(index, value){
+					var q = $(value).find('input[type="radio"]:checked');
+					var m = theTest.get($(value).prop('id'));
+					console.log('modelAnswer: ' + m.get('answer') + ' ' + 'userAnswer: ' + $(q).val() );
+					if (m.get('answer') === $(q).val()){ 
+						//correct answer
+						score++;
+						$('.glyphicon-check[name="' + m.cid + '"][id="' + $(q).val()  + '"]').show();
+					}else{
+						//incorrect answer
+						$('.glyphicon-exclamation-sign[name="' + m.cid + '"][id="' + $(q).val()  + '"]').show();
+						$('.glyphicon-check[name="' + m.cid + '"][id="' + m.get('answer')  + '"]').show();
+						$('#wrongAnswers').append($(value).html());
+
+					}
+
+				});
+				
+				$('#progressScore').prop('aria-valuenow', Math.floor((score/numberOfQuestions)*100));
+				$('#progressScore').css('width', Math.floor((score/numberOfQuestions)*100) + '%');
+				$('#progressScore').text( Math.floor((score/numberOfQuestions)*100) + '%');
+				
+
+				$('#labelScore').text('You answered ' + score + ' out of ' + numberOfQuestions + ' correctly.' );			
+				$('#questionsArea').hide();	
+				$('#answerArea').show();
+				$('.progress').show();
+				$('#labelScore').show();
+				$('#btnReset').show();
+				
+				$('#wrongAnswers input[type="radio"]').each(function(v,k){
+					$(k).attr('disabled', true);
+				});
+
+			}else{
+				$('#answerArea').show();
+				$('#labelAnswered').text('Answered ' + numAnswers + ' of ' + numberOfQuestions + ' questions.');
+				$('.progress').hide();
+				$('#labelScore').hide();
+			}
+		});
+	});
+	</script>
+
+	<script type="text/template" id="questionTemplate">
+	<div class="row" name="testQuestion" id="<%= q.cid %>">
+		<label><%= q.get('question') %></label><br/>
+		<% _.each(_.shuffle(_.pairs(q.get('choices'))), function(choice){ %>
+		<input type="radio" name="<%= q.cid %>"  value="<%= choice[0] %>"><%= choice[1] %>&nbsp;<span class="glyphicon glyphicon-check" id="<%= choice[0] %>" name="<%= q.cid %>" style="display:none"></span><span class="glyphicon glyphicon-exclamation-sign" id="<%= choice[0] %>" name="<%= q.cid %>" style="display:none"></span><br/>
+		<% }); %>
+	</div>
+	<br/>
+	</script>
+
+</head>
+
+<body class="container">
+<div class="wrapper">
+	<h1>CEH Practice Test!</h1> <hr/>
+	<div id="header">
+		<form class="form-inline" role="form">
+	 		<label for="numQuestions">Number of questions:</label>&nbsp;
+	 		<input type="text" id="numQuestions"class="form-control" size="3" maxlength="3" placeholder="5"/> of 
+	 		<input type="text" id="tMaxLen" class="form-control" size="3" maxlength="3" placeholder="000" disabled/>
+	 		<button class="btn btn-primary" id="btnGenTest">Take Test!</button>
+		</form>
+	</div>
+	<div class="container" id="testArea">
+		<div class="container" id="questionsArea">
+		</div>
+		<button class="btn btn-primary" id="btnSubmitTest" style="display:none">Finished!</button>&nbsp;&nbsp;&nbsp;&nbsp;<button class="btn btn-primary" id="btnReset" style="display:none">New Test!</button><br/>
+		<div class="" id="answerArea" style="display:none">
+			
+			<label id="labelAnswered" style=""></label><br/>
+			<label id="labelScore" style=""> </label>
+			<div class="progress" style="">
+	  			<div class="progress-bar" id="progressScore" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style=""> 0% </div>
+			</div>
+			<div class="" id="wrongAnswers" style="display:hidden">
+			</div>
+		</div>
+	</div>
+
+	<div class="container" id="resultsArea" style="display:none">
+	</div>
+		<div class="push"></div>
+	</div>
+	<div class="footer">
+	<hr>
+		<p style="color:#cccccc;">By: <i><a href="http://github.com/echohtp" style="color:#cccccc;">Jason Schorr</a></i></p>
+	</div>
+</body>
+
+</html>
